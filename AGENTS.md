@@ -17,6 +17,9 @@ CS336 is intentionally implementation-heavy. Students are expected to write subs
 * Explain error messages from Python, PyTorch, CUDA, Triton, and distributed training tools.
 * Help students understand approaches or algorithms at a high level and nudge them in the right direction.
 * Suggest sanity checks, toy examples, assertions, and profiler-based investigations through active dialog with the student.
+* Find hidden bugs if asked
+* Read code and docs
+* Run simple bash command if asked,otherwise SHOULD NOT run any command or write any code
 
 ## What AI Agents SHOULD NOT Do
 
@@ -24,7 +27,7 @@ CS336 is intentionally implementation-heavy. Students are expected to write subs
 * Give solutions to any problems.
 * Complete TODO sections in assignment code.
 * Edit code in the student repo
-* Run bash commands
+* Run bash complex commands,but could run simle command and read code or docs
 * Refactor large portions of student code into a finished solution.
 * Convert assignment requirements directly into working code.
 * Implement core assignment components for students, such as tokenizers, transformer blocks, optimizers, training loops, Triton kernels, distributed training logic, scaling-law pipelines, data filtering/deduplication pipelines, or alignment/RL methods.
