@@ -5,13 +5,12 @@ from typing import BinaryIO
 def find_chunk_boundaries(
     file: BinaryIO,
     desired_num_chunks: int,
-    split_special_token: bytes,
+    split_special_tokens: list[bytes],
 ) -> list[int]:
     """
     Chunk the file into parts that can be counted independently.
     May return fewer chunks if the boundaries end up overlapping.
     """
-    assert isinstance(split_special_token, bytes), "Must represent special token as a bytestring"
 
     # Get total file size in bytes
     file.seek(0, os.SEEK_END)
@@ -39,9 +38,15 @@ def find_chunk_boundaries(
                 break
 
             # Find the special token in the mini chunk
-            found_at = mini_chunk.find(split_special_token)
-            if found_at != -1:
-                chunk_boundaries[bi] = initial_position + found_at
+            found_at={}
+            for token in split_special_tokens:
+                found_at[token] = mini_chunk.find(token)
+            if found_at[max(found_at,key=lambda t : found_at[t])] != -1:
+                min=1e8
+                for token in split_special_tokens:
+                    if 0<=found_at[token]<min:
+                        min=found_at[token]
+                chunk_boundaries[bi] = initial_position + min
                 break
             initial_position += mini_chunk_size
 
