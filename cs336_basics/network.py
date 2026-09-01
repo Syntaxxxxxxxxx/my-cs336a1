@@ -6,6 +6,25 @@ from einops import einsum
 def SiLU(x):
     return x*torch.sigmoid(x)
 
+def softmax(x,dim):
+    m,_=torch.max(x,dim=dim,keepdim=True)
+    temp=torch.exp(x-m)
+    val=torch.sum(temp,dim=dim,keepdim=True)
+    return temp/val
+
+def Attention(q,k,v,mask=None):
+    attn=einsum(q,k,
+           '... q_len d_k,... k_len d_k -> ... q_len k_len')
+    attn/=math.sqrt(q.shape[-1])
+    q_len,k_len,v_len=q.shape[-2],k.shape[-2],v.shape[-2]
+    if mask is not None:
+        attn=attn.masked_fill(~mask,-1*torch.inf)      
+    score=softmax(attn,dim=-1)
+    assert k_len==v_len
+    val=einsum(score,v,
+               '... q_len k_len,... k_len d_v -> ... q_len d_v')
+    return val
+
 class Embedding(nn.Module):
     def __init__(self,num_embeddings,d_model,device=None,dtype=None):
         super().__init__()
