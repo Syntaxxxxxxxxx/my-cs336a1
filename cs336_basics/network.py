@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import math
-from einops import einsum
+from einops import einsum,rearrange
 
 def SiLU(x):
     return x*torch.sigmoid(x)
@@ -79,4 +79,42 @@ class SwiGLU(nn.Module):
         result=SiLU(result)
         result*=self.w3(x)
         result=self.w2(result)
+        return result
+
+class RoPE(nn.Module):
+    def __init__(self,d_k,max_seq_len,theta=10000,device=None,dtype=None):
+        super().__init__()
+        assert d_k%2==0
+        self.d_k=d_k
+        self.max_seq_len=max_seq_len
+        self.theta=theta
+        w_k=[theta**(-2*k/d_k) for k in range(d_k//2)]
+        w_k=torch.tensor(w_k,device=device)
+        w_k=w_k.reshape([1,-1])
+        buffer=torch.zeros([max_seq_len,d_k//2],device=device,dtype=dtype)
+        buffer+=w_k
+        index=torch.arange(max_seq_len,device=device,dtype=dtype)
+        index=index.reshape([-1,1])
+        buffer*=index
+        self.register_buffer("weight",buffer)
+
+    def forward(self,x,token_pos):
+        "shape of weight=[max_seq_len,d_k//2]"
+        "shape of x=[B,H,len,d_k]"
+        "shape of token pos=[B,len]"
+        odd=x[...,1::2]
+        even=x[...,0::2]
+        angle=self.weight[token_pos,:]
+        angle=rearrange(angle,"... L D ->... 1 L D")
+        cos_angle=torch.cos(angle)
+        sin_angle=torch.sin(angle)
+        new_even=cos_angle*even-sin_angle*odd
+        new_odd=sin_angle*even+cos_angle*odd
+        res_shape=list(x.shape)
+        res_shape[-1]=res_shape[-1]//2
+        res_shape.append(2)
+        result=torch.zeros(res_shape,device=x.device,dtype=x.dtype)
+        result[...,0]=new_even
+        result[...,1]=new_odd
+        result=rearrange(result,"... d_k n -> ... (d_k n)")
         return result
