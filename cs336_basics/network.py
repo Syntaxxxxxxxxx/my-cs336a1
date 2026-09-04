@@ -119,7 +119,7 @@ class RoPE(nn.Module):
         result=rearrange(result,"... d_k n -> ... (d_k n)")
         return result
 
-class Muti_Head_Self_Attn(nn.Module):
+class Multi_Head_Self_Attn(nn.Module):
     def __init__(self,d_model,heads,device=None,dtype=None):
         super().__init__()
         assert d_model%heads==0
@@ -151,8 +151,8 @@ class Muti_Head_Self_Attn(nn.Module):
         val=self.O(attn)
         return val
     
-class Muti_Head_Self_Attn_with_RoPE(nn.Module):
-    def __init__(self,d_k,d_model,max_seq_len,theta,heads,device=None,dtype=None):
+class Multi_Head_Self_Attn_with_RoPE(nn.Module):
+    def __init__(self,d_k,d_model,max_seq_len,heads,theta=10000,device=None,dtype=None):
         super().__init__()
         assert d_model%heads==0
         self.d_k=d_k
@@ -191,4 +191,22 @@ class Muti_Head_Self_Attn_with_RoPE(nn.Module):
         val=self.O(attn)
         return val
 
+class TransformerBlock(nn.Module):
+    def __init__(self,d_model,d_k,d_ff,max_seq_len,heads,eps=0.00001,theta=10000,device=None,dtype=None):
+        super().__init__()
+        self.rms1=RMSNorm(d_model,eps=eps,device=device,dtype=dtype)
+        self.mha_rope=Multi_Head_Self_Attn_with_RoPE(d_k,d_model,max_seq_len,heads,theta,device=device,dtype=dtype)
+        self.rms2=RMSNorm(d_model,eps=eps,device=device,dtype=dtype)
+        self.swiglu=SwiGLU(d_model,d_ff,device=device,dtype=dtype)
+    
+    def forward(self,x,token_pos=None):
+        temp=x
+        x=self.rms1(x)
+        x=self.mha_rope(x,token_pos)
+        x=temp+x
+        temp=x
+        x=self.rms2(x)
+        x=self.swiglu(x)
+        x=temp+x
+        return x
 
