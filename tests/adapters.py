@@ -10,7 +10,7 @@ from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
 from cs336_basics.tokenizer_train import train_bpe
-
+import cs336_basics.network as network
 def run_linear(
     d_in: int,
     d_out: int,
@@ -288,11 +288,31 @@ def run_transformer_lm(
     weights: dict[str, Tensor],
     in_indices: Int[Tensor, " batch_size sequence_length"],
 ) -> Float[Tensor, " batch_size sequence_length vocab_size"]:
+    lm=network.TransformerLM(vocab_size,d_model,d_ff,context_length,
+                             num_layers,num_heads,theta=rope_theta)
+    new_weights={}
+    for key,value in weights.items():
+        new_key=key
+        new_key=new_key.replace("token_embeddings","embedding")
+        new_key=new_key.replace("layers","transformers")
+        new_key=new_key.replace("attn","mha_rope")
+        new_key=new_key.replace("q_proj","Q")
+        new_key=new_key.replace("k_proj","K")
+        new_key=new_key.replace("v_proj","V")
+        new_key=new_key.replace("output_proj","O")
+        new_key=new_key.replace("ln1","rms1")
+        new_key=new_key.replace("ln2","rms2")
+        new_key=new_key.replace("ffn","swiglu")
+        new_key=new_key.replace("ln_final","rms")
+        new_key=new_key.replace("lm_head","unembedding")
+        new_weights[new_key]=value
+    lm.load_state_dict(new_weights)
+    return lm(in_indices)
     """Given the weights of a Transformer language model and input indices,
     return the output of running a forward pass on the input indices.
 
     This function should use RoPE.
-
+    
     Args:
         vocab_size (int): The number of unique items in the output vocabulary to be predicted.
         context_length (int): The maximum number of tokens to process at once.
@@ -356,7 +376,7 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    
 
 
 def run_rmsnorm(

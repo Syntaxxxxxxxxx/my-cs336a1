@@ -96,7 +96,7 @@ class RoPE(nn.Module):
         index=torch.arange(max_seq_len,device=device,dtype=dtype)
         index=index.reshape([-1,1])
         buffer*=index
-        self.register_buffer("weight",buffer)
+        self.register_buffer("weight",buffer,persistent=False)
 
     def forward(self,x,token_pos):
         "shape of weight=[max_seq_len,d_k//2]"
@@ -210,3 +210,34 @@ class TransformerBlock(nn.Module):
         x=temp+x
         return x
 
+class TransformerLM(nn.Module):
+    def __init__(self,
+                 num_embeddings,
+                 d_model,d_ff,max_seq_len,
+                 N,heads,
+                 eps=0.00001,
+                 theta=10000,
+                 device=None,
+                 dtype=None):
+        
+        super().__init__()
+        d_k=d_model//heads
+        self.max_seq_len=max_seq_len
+        self.embedding=Embedding(num_embeddings,d_model,device=device,dtype=dtype)
+        transformers=[]
+        for i in range(N):
+            transformers.append(TransformerBlock(d_model,d_k,d_ff,max_seq_len,heads,eps=eps,theta=theta,device=device,dtype=dtype))
+        self.transformers=nn.ModuleList(transformers)
+        self.rms=RMSNorm(d_model,eps=eps,device=device,dtype=dtype)
+        self.unembedding=Linear(d_model,num_embeddings,dtype=dtype,device=device)
+
+    def forward(self,x):
+        "shape of x=[B,L]"
+        assert x.shape[-1]<=self.max_seq_len
+        x=self.embedding(x)
+        "shape of x=[B,L,d_k]"
+        for transformer in self.transformers:
+            x=transformer(x,token_pos=None)
+        x=self.rms(x)
+        x=self.unembedding(x)
+        return x
