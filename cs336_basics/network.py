@@ -118,3 +118,35 @@ class RoPE(nn.Module):
         result[...,1]=new_odd
         result=rearrange(result,"... d_k n -> ... (d_k n)")
         return result
+
+class Muti_Head_Self_Attn(nn.Module):
+    def __init__(self,d_model,heads,device=None,dtype=None):
+        super().__init__()
+        assert d_model%heads==0
+        self.d_model=d_model
+        self.dtype=dtype
+        d_attn=d_model//heads
+        self.d_attn=d_attn
+        self.heads=heads
+        self.Q=Linear(d_model,d_model,device=device,dtype=dtype)
+        self.K=Linear(d_model,d_model,device=device,dtype=dtype)
+        self.V=Linear(d_model,d_model,device=device,dtype=dtype)
+        self.O=Linear(d_model,d_model,device=device,dtype=dtype)
+
+    def forward(self,x):
+        q=self.Q(x)
+        k=self.K(x)
+        v=self.V(x)
+        q=rearrange(q,"... (heads d_attn) -> ... heads d_attn",heads=self.heads)
+        q=rearrange(q,"B L H D -> B H L D")
+        k=rearrange(k,"... (heads d_attn) -> ... heads d_attn",heads=self.heads)
+        k=rearrange(k,"B L H D -> B H L D")
+        v=rearrange(v,"... (heads d_attn) -> ... heads d_attn",heads=self.heads)
+        v=rearrange(v,"B L H D -> B H L D")
+        causal_mask=torch.ones([q.shape[-2],v.shape[-2]],device=q.device,dtype=torch.bool)
+        causal_mask=torch.tril(causal_mask,diagonal=0)
+        attn=Attention(q,k,v,causal_mask)
+        attn=rearrange(attn,"B H L D -> B L H D")
+        attn=rearrange(attn,"B L H D -> B L (H D)")
+        val=self.O(attn)
+        return val
