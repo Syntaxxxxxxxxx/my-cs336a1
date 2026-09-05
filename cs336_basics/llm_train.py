@@ -1,9 +1,12 @@
 from . import network
+from . import data_sample as ds
 from torch.utils.data import Dataset,DataLoader
 import torch
+import numpy as np
 from einops import rearrange
 from torch import optim 
 import math
+import argparse
 
 def log_sum_exp(x,dim):
     m,_=torch.max(x,dim=dim,keepdim=True)
@@ -118,3 +121,69 @@ class AdamW(optim.Optimizer):
                 p-=lr*weight_decay*p
                 p-=lr*m_t/v_t
         return loss
+
+
+
+if __name__ == "__main__":
+     parser=argparse.ArgumentParser()
+     parser.add_argument("save_path")
+     parser.add_argument("data_path")
+     parser.add_argument("--batchsize",type=int)
+     parser.add_argument("--context-length",type=int)
+     parser.add_argument("--num_embeddings",type=int)
+     parser.add_argument("--d_model",type=int)
+     parser.add_argument("--d_ff",type=int)
+     parser.add_argument("--max_seq_len",type=int)
+     parser.add_argument("--layers",type=int)
+     parser.add_argument("--heads",type=int)
+     parser.add_argument("--eps",type=float)
+     parser.add_argument("--theta",type=int)
+     parser.add_argument("--lr",type=float)
+     parser.add_argument("--beta1",type=float)
+     parser.add_argument("--beta2",type=float)
+     parser.add_argument("--alpha_max",type=float)
+     parser.add_argument("--alpha_min",type=float)
+     parser.add_argument("--T_w",type=int)
+     parser.add_argument("--T_c",type=int)
+     parser.add_argument("--weight-decay",type=float)
+     parser.add_argument("--steps",type=int)
+     parser.add_argument("--max-l2-norm",type=float)
+     parser.add_argument("--device",type=str)
+     #parser.add_argument("--dtype",type=str)
+
+     args=parser.parse_args()
+     args.dtype=None
+     model=network.TransformerLM(num_embeddings=args.num_embeddings,
+                                 d_model=args.d_model,
+                                 d_ff=args.d_ff,
+                                 max_seq_len=args.max_seq_len,
+                                 N=args.layers,
+                                 heads=args.heads,
+                                 eps=args.eps,
+                                 theta=args.theta,
+                                 device=args.device,
+                                 dtype=args.dtype)
+     
+     optimizer=AdamW(model.parameters(),
+                     lr=args.lr,
+                     betas=(args.beta1,args.beta2),
+                     eps=args.eps,
+                     weight_decay=args.weight_decay
+                     )
+     dataset=np.load(args.data_path,mmap_mode="r")
+     
+     for step in range(args.steps):
+        optimizer.zero_grad()
+        data,labels=ds.get_batch(dataset,batch_size=args.batchsize,context_length=args.context_length,device=args.device)
+        output=model(data)
+        loss=cross_entropy_loss(output,labels)
+        loss.backward()
+        lr=lr_schedule(step,alpha_max=args.alpha_max,alpha_min=args.alpha_min,
+                        T_w=args.T_w,T_c=args.T_c)
+        for group in optimizer.param_groups:
+                group["lr"]= lr
+        gradient_clip(model.parameters(),max_l2_norm=args.max_l2_norm)
+        optimizer.step()
+
+     save_ckpt(model=model,optimizer=optimizer,iteration=args.steps,out=args.save_path)
+    
