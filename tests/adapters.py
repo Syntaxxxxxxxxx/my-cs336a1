@@ -11,6 +11,7 @@ from torch import Tensor
 
 from cs336_basics.tokenizer_train import train_bpe
 import cs336_basics.network as network
+import cs336_basics.data_sample as data_sample
 def run_linear(
     d_in: int,
     d_out: int,
@@ -419,6 +420,7 @@ def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
 def run_get_batch(
     dataset: npt.NDArray, batch_size: int, context_length: int, device: str
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    return data_sample.get_batch(dataset,batch_size,context_length,device=None)
     """
     Given a dataset (a 1D numpy array of integers) and a desired batch size and
     context length, sample language modeling input sequences and their corresponding
@@ -436,7 +438,6 @@ def run_get_batch(
         is the sampled input sequences, and the second tuple item is the corresponding
         language modeling labels.
     """
-    raise NotImplementedError
 
 
 def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ..."]:
